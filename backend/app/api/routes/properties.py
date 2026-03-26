@@ -113,4 +113,8 @@ async def get_property(
         uid = str(user["_id"])
         if doc["owner_id"] != uid and user.get("role") != UserRole.ADMIN.value:
             raise HTTPException(404, "Not found")
+    else:
+        uid = str(user["_id"]) if user else None
+        if not uid or doc["owner_id"] != uid:
+            await property_repository.increment_view_count(db, property_id)
     return serialize_property(doc)

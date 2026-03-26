@@ -3,12 +3,14 @@ Subscription plans, checkout (mock / Stripe), invoices, auto-renew tick.
 """
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import PlainTextResponse
 
 from app.api.deps import AdminUser, CurrentUser, DbDep, OwnerUser
 from app.api.serializers import serialize_plan, serialize_subscription, serialize_transaction
 from app.config import get_settings
 from app.models.domain import TransactionStatus, UserRole
 from app.repositories import notification_repository, subscription_repository
+from app.services.email_service import send_email_optional
 from app.schemas.subscription import PlanCreate, PlanOut, PlanUpdate, SubscribeRequest, SubscriptionOut
 
 router = APIRouter(prefix="/subscriptions", tags=["subscriptions"])
@@ -111,6 +113,14 @@ async def subscribe(payload: SubscribeRequest, db: DbDep, user: OwnerUser):
         data={"subscription_id": sub_id},
     )
 
+    udoc = await user_repository.find_by_id(db, str(user["_id"]))
+    if udoc and udoc.get("email"):
+        send_email_optional(
+            udoc["email"],
+            "RealStat — subscription confirmed",
+            f"Your plan {plan['name']} is active. Amount: {plan['price_monthly']} {plan.get('currency', 'usd')}/mo.",
+        )
+
     sub = await subscription_repository.get_active_subscription(db, str(user["_id"]))
     return {
         "subscription": serialize_subscription(sub).model_dump() if sub else None,
@@ -130,6 +140,33 @@ async def list_invoices(db: DbDep, user: CurrentUser, skip: int = 0, limit: int 
         "items": [serialize_transaction(x).model_dump() for x in items],
         "total": total,
     }
+
+
+@router.get("/invoices/{transaction_id}/download")
+async def download_invoice(transaction_id: str, db: DbDep, user: CurrentUser):
+    """Downloadable plain-text invoice (PDF can be added later)."""
+    if user.get("role") != UserRole.OWNER.value:
+        raise HTTPException(status_code=403, detail="Owners only")
+    tx = await subscription_repository.find_transaction_for_user(db, transaction_id, str(user["_id"]))
+    if not tx:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    inv = tx.get("invoice_number") or transaction_id
+    lines = [
+        f"RealStat — Invoice {inv}",
+        f"Date: {tx.get('created_at')}",
+        f"Amount: {tx.get('amount')} {tx.get('currency', 'usd')}",
+        f"Status: {tx.get('status')}",
+        f"Provider: {tx.get('provider', 'mock')}",
+        "",
+        "Thank you for your subscription.",
+    ]
+    body = "\n".join(str(x) for x in lines)
+    filename = f"{inv}.txt"
+    return PlainTextResponse(
+        body,
+        media_type="text/plain; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.post("/system/auto-renew-run")

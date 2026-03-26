@@ -3,6 +3,7 @@ Authentication: register, login, JWT issuance.
 """
 
 from fastapi import APIRouter, HTTPException, status
+from pymongo.errors import PyMongoError
 
 from app.api.deps import DbDep
 from app.api.serializers import serialize_user
@@ -20,17 +21,27 @@ async def register(payload: UserCreate, db: DbDep):
     if payload.role == UserRole.ADMIN:
         raise HTTPException(status_code=403, detail="Admin accounts cannot be self-registered")
     email = payload.email.lower().strip()
-    if await user_repository.find_by_email(db, email):
-        raise HTTPException(status_code=400, detail="Email already registered")
-    doc = {
-        "email": email,
-        "password_hash": hash_password(payload.password),
-        "full_name": payload.full_name.strip(),
-        "role": payload.role.value,
-        "phone": payload.phone,
-    }
-    uid = await user_repository.insert_user(db, doc)
-    created = await user_repository.find_by_id(db, uid)
+    try:
+        if await user_repository.find_by_email(db, email):
+            raise HTTPException(status_code=400, detail="Email already registered")
+        doc = {
+            "email": email,
+            "password_hash": hash_password(payload.password),
+            "full_name": payload.full_name.strip(),
+            "role": payload.role.value,
+            "phone": payload.phone,
+        }
+        uid = await user_repository.insert_user(db, doc)
+        created = await user_repository.find_by_id(db, uid)
+    except HTTPException:
+        raise
+    except PyMongoError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="Database unavailable. Start MongoDB (port 27017) or set MONGODB_URI, then retry.",
+        ) from exc
+    if not created:
+        raise HTTPException(status_code=500, detail="Registration failed")
     return serialize_user(created)
 
 
@@ -38,8 +49,15 @@ async def register(payload: UserCreate, db: DbDep):
 async def login(payload: UserLogin, db: DbDep):
     """Return JWT for valid credentials."""
     email = payload.email.lower().strip()
-    user = await user_repository.find_by_email(db, email)
-    if not user or not verify_password(payload.password, user["password_hash"]):
+    try:
+        user = await user_repository.find_by_email(db, email)
+    except PyMongoError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="Database unavailable. Start MongoDB (port 27017) or set MONGODB_URI, then retry.",
+        ) from exc
+    ph = user.get("password_hash") if user else None
+    if not user or not ph or not verify_password(payload.password, ph):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
     if not user.get("is_active", True):
         raise HTTPException(status_code=403, detail="Account disabled")

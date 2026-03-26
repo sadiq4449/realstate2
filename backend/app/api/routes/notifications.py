@@ -9,6 +9,13 @@ from app.repositories import notification_repository
 router = APIRouter(prefix="/notifications", tags=["notifications"])
 
 
+@router.get("/unread-count", response_model=dict)
+async def unread_notification_count(db: DbDep, user: CurrentUser):
+    """Badge count for notification center."""
+    n = await db.notifications.count_documents({"user_id": str(user["_id"]), "read": False})
+    return {"count": n}
+
+
 @router.get("", response_model=list)
 async def list_notifications(db: DbDep, user: CurrentUser):
     """Recent notifications for navbar."""

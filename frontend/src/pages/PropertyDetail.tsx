@@ -5,7 +5,7 @@ import { useAppSelector } from "../app/hooks";
 import { ImageSlider } from "../components/ImageSlider";
 import type { Property } from "../slices/propertiesSlice";
 
-/** Listing detail with contact CTA for seekers. */
+/** Listing detail: media, favorites, videos, contact (Epic 2–4). */
 export function PropertyDetail() {
   const { id } = useParams();
   const user = useAppSelector((s) => s.auth.user);
@@ -13,6 +13,7 @@ export function PropertyDetail() {
   const [err, setErr] = useState<string | null>(null);
   const [msg, setMsg] = useState("");
   const [sent, setSent] = useState(false);
+  const [favorited, setFavorited] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -25,6 +26,29 @@ export function PropertyDetail() {
       }
     })();
   }, [id]);
+
+  useEffect(() => {
+    if (!id || user?.role !== "seeker") return;
+    void (async () => {
+      try {
+        const s = (await apiFetch(`/favorites/status/${id}`)) as { favorited: boolean };
+        setFavorited(s.favorited);
+      } catch {
+        setFavorited(false);
+      }
+    })();
+  }, [id, user?.role]);
+
+  async function toggleFavorite() {
+    if (!p || user?.role !== "seeker") return;
+    if (favorited) {
+      await apiFetch(`/favorites/${p.id}`, { method: "DELETE" });
+      setFavorited(false);
+    } else {
+      await apiFetch("/favorites", { method: "POST", json: { property_id: p.id } });
+      setFavorited(true);
+    }
+  }
 
   async function sendMessage(e: FormEvent) {
     e.preventDefault();
@@ -41,15 +65,43 @@ export function PropertyDetail() {
   if (err) return <p className="text-red-600">{err}</p>;
   if (!p) return <p className="text-gray-500">Loading…</p>;
 
+  const videos = p.videos?.filter(Boolean) ?? [];
+
   return (
     <div className="grid lg:grid-cols-2 gap-8">
-      <div>
-        <ImageSlider images={p.images} alt={p.title} />
+      <div className="space-y-4">
+        <ImageSlider images={p.images ?? []} alt={p.title} />
+        {videos.length > 0 && (
+          <div className="space-y-2">
+            <h3 className="font-semibold text-sm text-gray-700">Videos</h3>
+            <div className="space-y-3">
+              {videos.map((url) => (
+                <video key={url} className="w-full rounded-xl border border-gray-200" controls src={url} />
+              ))}
+            </div>
+          </div>
+        )}
       </div>
       <div className="space-y-4">
-        <h1 className="text-3xl font-bold">{p.title}</h1>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <h1 className="text-3xl font-bold">{p.title}</h1>
+          {user?.role === "seeker" && (
+            <button
+              type="button"
+              onClick={() => void toggleFavorite()}
+              className={`px-4 py-2 rounded-lg text-sm font-medium border ${
+                favorited ? "bg-primary text-white border-primary" : "bg-white border-gray-200"
+              }`}
+            >
+              {favorited ? "Saved" : "Save listing"}
+            </button>
+          )}
+        </div>
         <p className="text-primary text-2xl font-semibold">PKR {p.rent_monthly.toLocaleString()} / mo</p>
         <p className="text-gray-600">{p.city}</p>
+        {typeof p.view_count === "number" && (
+          <p className="text-xs text-gray-400">{p.view_count.toLocaleString()} views</p>
+        )}
         <p className="text-gray-700 whitespace-pre-wrap">{p.description}</p>
         <div className="flex flex-wrap gap-2 text-sm">
           {p.amenities.map((a) => (
@@ -81,10 +133,9 @@ export function PropertyDetail() {
             <Link to="/login" className="text-primary font-medium">
               Login as seeker
             </Link>{" "}
-            to contact the owner.
+            to contact the owner or save this listing.
           </p>
         )}
-        <p className="text-xs text-gray-400">Owner ID: {ownerId}</p>
       </div>
     </div>
   );

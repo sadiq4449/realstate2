@@ -31,9 +31,11 @@ async def search_properties(
     radius_m: Optional[float] = Query(None, description="Meters for $nearSphere"),
     skip: int = 0,
     limit: int = 20,
+    featured_first: bool = True,
 ):
     """
     Full-text + structured filters. When near_lat/near_lng + radius_m set, applies geo filter.
+    featured_first boosts listings whose owners have Pro/Featured plans (search_boost).
     """
     amen_list = [a.strip() for a in amenities.split(",")] if amenities else None
     if amen_list == []:
@@ -58,6 +60,7 @@ async def search_properties(
         max_distance_m=max_dist,
         skip=skip,
         limit=limit,
+        featured_first=featured_first,
     )
     return {
         "items": [serialize_property(x).model_dump() for x in items],

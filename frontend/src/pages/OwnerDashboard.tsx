@@ -5,9 +5,19 @@ import { useAppDispatch } from "../app/hooks";
 import { ListingCard } from "../components/ListingCard";
 import { setMine, type Property } from "../slices/propertiesSlice";
 
+type PerfRow = {
+  property_id: string;
+  title: string;
+  status?: string;
+  view_count: number;
+  inquiries: number;
+};
+
+/** Owner listings + views / inquiries (Epic 2.4). */
 export function OwnerDashboard() {
   const dispatch = useAppDispatch();
   const [items, setItems] = useState<Property[]>([]);
+  const [perf, setPerf] = useState<PerfRow[]>([]);
 
   useEffect(() => {
     void (async () => {
@@ -17,12 +27,23 @@ export function OwnerDashboard() {
     })();
   }, [dispatch]);
 
+  useEffect(() => {
+    void (async () => {
+      try {
+        const s = (await apiFetch("/analytics/owner/summary")) as { listings: PerfRow[] };
+        setPerf(s.listings);
+      } catch {
+        setPerf([]);
+      }
+    })();
+  }, [items.length]);
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">Owner dashboard</h1>
-          <p className="text-gray-600 text-sm">Manage listings and subscription.</p>
+          <p className="text-gray-600 text-sm">Listings, views, and inquiries.</p>
         </div>
         <div className="flex gap-2">
           <Link
@@ -39,6 +60,35 @@ export function OwnerDashboard() {
           </Link>
         </div>
       </div>
+
+      {perf.length > 0 && (
+        <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+          <div className="p-4 border-b font-semibold">Performance</div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead className="bg-gray-50 text-left">
+                <tr>
+                  <th className="p-3">Listing</th>
+                  <th className="p-3">Status</th>
+                  <th className="p-3">Views</th>
+                  <th className="p-3">Inquiries</th>
+                </tr>
+              </thead>
+              <tbody>
+                {perf.map((row) => (
+                  <tr key={row.property_id} className="border-t">
+                    <td className="p-3">{row.title}</td>
+                    <td className="p-3 capitalize">{row.status}</td>
+                    <td className="p-3">{row.view_count}</td>
+                    <td className="p-3">{row.inquiries}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
         {items.map((p) => (
           <ListingCard key={p.id} p={p} />

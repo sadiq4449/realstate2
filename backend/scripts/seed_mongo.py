@@ -36,6 +36,8 @@ def main() -> None:
     db.messages.delete_many({})
     db.notifications.delete_many({})
     db.admin_logs.delete_many({})
+    db.favorites.delete_many({})
+    db.listing_alerts.delete_many({})
 
     owner_id = ObjectId()
     seeker_id = ObjectId()
@@ -76,10 +78,24 @@ def main() -> None:
         ]
     )
 
+    plan_free = ObjectId()
     plan_basic = ObjectId()
     plan_pro = ObjectId()
+    plan_featured = ObjectId()
     db.subscription_plans.insert_many(
         [
+            {
+                "_id": plan_free,
+                "name": "Free",
+                "description": "Starter — up to 3 listings",
+                "price_monthly": 0.0,
+                "currency": "usd",
+                "max_listings": 3,
+                "search_boost": 0,
+                "features": {"analytics": False, "priority": False},
+                "active": True,
+                "created_at": now,
+            },
             {
                 "_id": plan_basic,
                 "name": "Basic",
@@ -87,6 +103,7 @@ def main() -> None:
                 "price_monthly": 29.0,
                 "currency": "usd",
                 "max_listings": 5,
+                "search_boost": 1,
                 "features": {"analytics": False, "priority": False},
                 "active": True,
                 "created_at": now,
@@ -94,11 +111,24 @@ def main() -> None:
             {
                 "_id": plan_pro,
                 "name": "Pro",
-                "description": "Up to 25 listings + analytics",
+                "description": "Up to 25 listings + higher search rank",
                 "price_monthly": 79.0,
                 "currency": "usd",
                 "max_listings": 25,
+                "search_boost": 5,
                 "features": {"analytics": True, "priority": True},
+                "active": True,
+                "created_at": now,
+            },
+            {
+                "_id": plan_featured,
+                "name": "Featured",
+                "description": "Maximum visibility in search",
+                "price_monthly": 149.0,
+                "currency": "usd",
+                "max_listings": 50,
+                "search_boost": 15,
+                "features": {"analytics": True, "priority": True, "homepage": True},
                 "active": True,
                 "created_at": now,
             },
@@ -125,6 +155,8 @@ def main() -> None:
                     "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=800",
                     "https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800",
                 ],
+                "videos": [],
+                "view_count": 42,
                 "status": "approved",
                 "location": {"type": "Point", "coordinates": [67.0299, 24.8138]},
                 "created_at": now,
@@ -145,6 +177,8 @@ def main() -> None:
                 "images": [
                     "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=800",
                 ],
+                "videos": [],
+                "view_count": 0,
                 "status": "pending",
                 "location": {"type": "Point", "coordinates": [67.0752, 24.8134]},
                 "created_at": now,

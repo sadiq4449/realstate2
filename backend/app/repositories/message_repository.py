@@ -70,3 +70,17 @@ async def conversations_for_user(db: AsyncIOMotorDatabase, user_id: str) -> List
         },
     ]
     return await db.messages.aggregate(pipeline).to_list(length=200)
+
+
+async def count_messages_by_property_ids(
+    db: AsyncIOMotorDatabase, property_ids: List[str]
+) -> Dict[str, int]:
+    """Total messages per property (inquiries / thread activity)."""
+    if not property_ids:
+        return {}
+    pipeline = [
+        {"$match": {"property_id": {"$in": property_ids}}},
+        {"$group": {"_id": "$property_id", "n": {"$sum": 1}}},
+    ]
+    rows = await db.messages.aggregate(pipeline).to_list(length=500)
+    return {str(r["_id"]): int(r["n"]) for r in rows}

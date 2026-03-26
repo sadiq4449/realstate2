@@ -4,8 +4,9 @@ Aggregate stats for admin dashboards (charts on frontend).
 
 from fastapi import APIRouter
 
-from app.api.deps import AdminUser, DbDep
+from app.api.deps import AdminUser, DbDep, OwnerUser
 from app.models.domain import PropertyStatus, UserRole
+from app.repositories import message_repository, property_repository
 
 router = APIRouter(prefix="/analytics", tags=["analytics"])
 
@@ -50,3 +51,24 @@ async def listings_by_city(db: DbDep, admin: AdminUser):
     ]
     rows = await db.properties.aggregate(pipeline).to_list(length=20)
     return [{"city": r["_id"], "count": r["count"]} for r in rows]
+
+
+@router.get("/owner/summary")
+async def owner_performance_summary(db: DbDep, user: OwnerUser):
+    """Per-listing views and inquiry (message) counts for owner dashboard."""
+    items, total = await property_repository.list_by_owner(db, str(user["_id"]), skip=0, limit=200)
+    ids = [str(x["_id"]) for x in items]
+    msg_counts = await message_repository.count_messages_by_property_ids(db, ids)
+    listings = []
+    for it in items:
+        pid = str(it["_id"])
+        listings.append(
+            {
+                "property_id": pid,
+                "title": it.get("title", ""),
+                "status": it.get("status"),
+                "view_count": int(it.get("view_count") or 0),
+                "inquiries": msg_counts.get(pid, 0),
+            }
+        )
+    return {"listings": listings, "total_listings": total}

@@ -5,9 +5,10 @@ Super admin: listing moderation, pending queue, audit trail hooks.
 from fastapi import APIRouter, HTTPException
 
 from app.api.deps import AdminUser, DbDep
-from app.api.serializers import serialize_property
+from app.api.serializers import serialize_message, serialize_property
 from app.models.domain import PropertyStatus
-from app.repositories import notification_repository, property_repository, user_repository
+from app.repositories import listing_alert_repository, notification_repository, property_repository, user_repository
+from app.services.email_service import send_email_optional
 from app.schemas.admin_ops import PropertyModerateBody
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -49,6 +50,13 @@ async def moderate_property(
         body=reason or f"Your listing was {status.value}.",
         data={"property_id": property_id},
     )
+    owner_doc = await user_repository.find_by_id(db, owner_id)
+    if owner_doc and owner_doc.get("email"):
+        send_email_optional(
+            owner_doc["email"],
+            f"RealStat — listing {status.value}",
+            reason or f"Your listing was {status.value}.",
+        )
     await notification_repository.insert_admin_log(
         db,
         admin_id=str(admin["_id"]),
@@ -58,4 +66,15 @@ async def moderate_property(
         detail={"status": status.value, "reason": reason},
     )
     fresh = await property_repository.find_by_id(db, property_id)
+    if status == PropertyStatus.APPROVED and fresh:
+        await listing_alert_repository.notify_matching_seekers(db, fresh)
     return serialize_property(fresh)
+
+
+@router.get("/messages/recent", response_model=list)
+async def admin_recent_messages(db: DbDep, admin: AdminUser, limit: int = 100):
+    """Monitor chat history (newest first)."""
+    lim = min(max(limit, 1), 200)
+    cursor = db.messages.find({}).sort("created_at", -1).limit(lim)
+    rows = await cursor.to_list(length=lim)
+    return [serialize_message(r).model_dump(mode="json") for r in rows]

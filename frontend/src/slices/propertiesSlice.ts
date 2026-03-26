@@ -12,6 +12,8 @@ export interface Property {
   furnished: boolean;
   amenities: string[];
   images: string[];
+  videos?: string[];
+  view_count?: number;
   description?: string;
   address?: string;
   status?: string;

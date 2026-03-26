@@ -50,3 +50,7 @@ async def ensure_indexes() -> None:
     await db.messages.create_index("property_id")
     await db.notifications.create_index([("user_id", 1), ("read", 1)])
     await db.admin_logs.create_index("created_at")
+
+    await db.favorites.create_index([("user_id", 1), ("property_id", 1)], unique=True)
+    await db.favorites.create_index("user_id")
+    await db.listing_alerts.create_index([("user_id", 1), ("active", 1)])

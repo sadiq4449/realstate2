@@ -13,9 +13,10 @@ class PlanCreate(BaseModel):
 
     name: str
     description: str = ""
-    price_monthly: float = Field(gt=0)
+    price_monthly: float = Field(ge=0, description="0 for Free tier")
     currency: str = "usd"
     max_listings: int = Field(ge=1, default=5)
+    search_boost: int = Field(default=0, ge=0, le=100, description="Higher = sort earlier in search")
     features: Dict[str, Any] = {}
 
 
@@ -27,6 +28,7 @@ class PlanUpdate(BaseModel):
     price_monthly: Optional[float] = None
     currency: Optional[str] = None
     max_listings: Optional[int] = None
+    search_boost: Optional[int] = Field(default=None, ge=0, le=100)
     features: Optional[Dict[str, Any]] = None
     active: Optional[bool] = None
 
@@ -40,6 +42,7 @@ class PlanOut(BaseModel):
     price_monthly: float
     currency: str
     max_listings: int
+    search_boost: int = 0
     features: Dict[str, Any]
     active: bool = True
 

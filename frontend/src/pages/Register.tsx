@@ -11,6 +11,7 @@ export function Register() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
+  const [phone, setPhone] = useState("");
   const [role, setRole] = useState<UserRole>("seeker");
   const [err, setErr] = useState<string | null>(null);
 
@@ -46,6 +47,15 @@ export function Register() {
             value={fullName}
             onChange={(e) => setFullName(e.target.value)}
             required
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium mb-1">Phone (optional)</label>
+          <input
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary outline-none"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder="+92-300-0000000"
           />
         </div>
         <div>

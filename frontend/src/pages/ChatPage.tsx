@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
-import { apiFetch, getToken } from "../api/client";
+import { apiBase, apiFetch, getToken } from "../api/client";
 import { useAppDispatch, useAppSelector } from "../app/hooks";
 import { appendMessage, setActiveConversation, setMessages, type ChatMessage } from "../slices/chatSlice";
 
@@ -29,7 +29,31 @@ export function ChatPage() {
   const [body, setBody] = useState("");
   const [propertyId, setPropertyId] = useState("");
   const [recipientId, setRecipientId] = useState("");
+  const [attachUrl, setAttachUrl] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
+
+  async function onPickFile(f: File | null) {
+    if (!f) return;
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", f);
+      const token = getToken();
+      const res = await fetch(`${apiBase}/upload`, {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: fd,
+      });
+      const data = (await res.json()) as { url?: string };
+      if (!res.ok) throw new Error("Upload failed");
+      if (data.url) setAttachUrl(data.url);
+    } catch {
+      setAttachUrl(null);
+    } finally {
+      setUploading(false);
+    }
+  }
 
   async function refreshThreads() {
     const rows = (await apiFetch("/messages/conversations")) as Thread[];
@@ -80,10 +104,32 @@ export function ChatPage() {
     if (!propertyId || !recipientId || !body) return;
     await apiFetch("/messages", {
       method: "POST",
-      json: { property_id: propertyId, recipient_id: recipientId, body },
+      json: { property_id: propertyId, recipient_id: recipientId, body, attachment_url: attachUrl || undefined },
     });
     setBody("");
+    setAttachUrl(null);
     await refreshThreads();
+  }
+
+  async function sendReply(e: FormEvent) {
+    e.preventDefault();
+    if (!activeConversationId || !body.trim()) return;
+    const t = threads.find((x) => x.conversation_id === activeConversationId);
+    if (!t) return;
+    await apiFetch("/messages", {
+      method: "POST",
+      json: {
+        property_id: t.property_id,
+        recipient_id: t.other_user_id,
+        body,
+        attachment_url: attachUrl || undefined,
+      },
+    });
+    setBody("");
+    setAttachUrl(null);
+    await refreshThreads();
+    const rows = (await apiFetch(`/messages/${activeConversationId}`)) as ChatMessage[];
+    dispatch(setMessages(rows));
   }
 
   return (
@@ -145,6 +191,16 @@ export function ChatPage() {
                   }`}
                 >
                   <p>{m.body}</p>
+                  {m.attachment_url && (
+                    <a
+                      href={m.attachment_url}
+                      className={`text-xs underline mt-1 block ${mine ? "text-white/90" : "text-primary"}`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Attachment
+                    </a>
+                  )}
                   <p className={`text-[10px] mt-1 ${mine ? "text-white/80" : "text-gray-500"}`}>
                     {new Date(m.created_at).toLocaleString()}
                   </p>
@@ -153,6 +209,34 @@ export function ChatPage() {
             );
           })}
         </div>
+        {activeConversationId && (
+          <form onSubmit={sendReply} className="border-t p-3 flex flex-col gap-2">
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <label className="text-gray-600">
+                <input
+                  type="file"
+                  className="hidden"
+                  onChange={(e) => void onPickFile(e.target.files?.[0] ?? null)}
+                />
+                <span className="px-2 py-1 rounded border border-gray-200 cursor-pointer">
+                  {uploading ? "Uploading…" : "Attach file"}
+                </span>
+              </label>
+              {attachUrl && <span className="text-success">File ready</span>}
+            </div>
+            <div className="flex gap-2">
+              <input
+                className="flex-1 border rounded-lg px-3 py-2 text-sm"
+                placeholder="Reply…"
+                value={body}
+                onChange={(e) => setBody(e.target.value)}
+              />
+              <button type="submit" className="px-4 py-2 rounded-lg bg-primary text-white text-sm font-medium">
+                Send
+              </button>
+            </div>
+          </form>
+        )}
       </section>
     </div>
   );

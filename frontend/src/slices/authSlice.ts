@@ -9,6 +9,7 @@ export interface User {
   full_name: string;
   role: UserRole;
   phone?: string;
+  is_active?: boolean;
 }
 
 interface AuthState {

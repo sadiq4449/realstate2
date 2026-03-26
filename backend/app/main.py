@@ -13,7 +13,20 @@ from fastapi import FastAPI, Query, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from app.api.routes import admin, analytics, auth, messages, notifications, properties, search, subscriptions, upload, users
+from app.api.routes import (
+    admin,
+    analytics,
+    auth,
+    favorites,
+    listing_alerts,
+    messages,
+    notifications,
+    properties,
+    search,
+    subscriptions,
+    upload,
+    users,
+)
 from app.config import get_settings
 from app.core.security import decode_token
 from app.database import ensure_indexes, get_database
@@ -59,6 +72,8 @@ app.include_router(messages.router, prefix=api)
 app.include_router(upload.router, prefix=api)
 app.include_router(notifications.router, prefix=api)
 app.include_router(analytics.router, prefix=api)
+app.include_router(favorites.router, prefix=api)
+app.include_router(listing_alerts.router, prefix=api)
 
 # Local media — directory must exist before StaticFiles mounts (runs at import, before lifespan).
 Path(settings.LOCAL_UPLOAD_DIR).mkdir(parents=True, exist_ok=True)

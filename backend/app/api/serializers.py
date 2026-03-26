@@ -42,6 +42,8 @@ def serialize_property(doc: Dict[str, Any]) -> PropertyOut:
         furnished=bool(doc.get("furnished", False)),
         amenities=list(doc.get("amenities") or []),
         images=list(doc.get("images") or []),
+        videos=list(doc.get("videos") or []),
+        view_count=int(doc.get("view_count") or 0),
         status=PropertyStatus(doc["status"]),
         location=geo,
         created_at=doc.get("created_at"),
@@ -57,6 +59,7 @@ def serialize_plan(doc: Dict[str, Any]) -> PlanOut:
         price_monthly=float(doc["price_monthly"]),
         currency=doc.get("currency", "usd"),
         max_listings=int(doc.get("max_listings", 5)),
+        search_boost=int(doc.get("search_boost", 0)),
         features=dict(doc.get("features") or {}),
         active=bool(doc.get("active", True)),
     )

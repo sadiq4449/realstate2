@@ -56,3 +56,29 @@ class AdminUserUpdate(BaseModel):
 
     is_active: Optional[bool] = None
     role: Optional[UserRole] = None
+
+
+class ListingAlertCreate(BaseModel):
+    """Seeker alert when new approved listings match filters."""
+
+    city: str = Field(min_length=1, max_length=120)
+    min_price: Optional[float] = None
+    max_price: Optional[float] = None
+    min_bedrooms: Optional[int] = Field(default=None, ge=0)
+
+
+class ListingAlertOut(BaseModel):
+    """Saved alert row."""
+
+    id: str
+    city: str
+    min_price: Optional[float] = None
+    max_price: Optional[float] = None
+    min_bedrooms: Optional[int] = None
+    created_at: Optional[datetime] = None
+
+
+class FavoriteBody(BaseModel):
+    """Add saved listing."""
+
+    property_id: str = Field(min_length=1)

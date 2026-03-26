@@ -7,9 +7,12 @@ import { ProtectedRoute } from "./components/ProtectedRoute";
 import { AdminDashboard } from "./pages/AdminDashboard";
 import { ChatPage } from "./pages/ChatPage";
 import { CreateListing } from "./pages/CreateListing";
+import { FavoritesPage } from "./pages/FavoritesPage";
 import { Landing } from "./pages/Landing";
 import { Login } from "./pages/Login";
+import { NotificationsPage } from "./pages/NotificationsPage";
 import { OwnerDashboard } from "./pages/OwnerDashboard";
+import { ProfilePage } from "./pages/ProfilePage";
 import { PropertyDetail } from "./pages/PropertyDetail";
 import { Register } from "./pages/Register";
 import { SeekerSearch } from "./pages/SeekerSearch";
@@ -58,6 +61,31 @@ export default function App() {
         <Route path="/search" element={<SeekerSearch />} />
         <Route path="/property/:id" element={<PropertyDetail />} />
         <Route path="/pricing" element={<SubscriptionPage />} />
+
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <ProfilePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/favorites"
+          element={
+            <ProtectedRoute roles={["seeker"]}>
+              <FavoritesPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/notifications"
+          element={
+            <ProtectedRoute>
+              <NotificationsPage />
+            </ProtectedRoute>
+          }
+        />
 
         <Route
           path="/owner"

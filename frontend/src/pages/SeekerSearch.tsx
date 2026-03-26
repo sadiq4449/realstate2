@@ -1,8 +1,8 @@
 import L from "leaflet";
-import { useEffect, useMemo, useState } from "react";
-import { MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents } from "react-leaflet";
 import { apiFetch } from "../api/client";
-import { useAppDispatch } from "../app/hooks";
+import { useAppDispatch, useAppSelector } from "../app/hooks";
 import { ListingCard } from "../components/ListingCard";
 import { setSearch, type Property } from "../slices/propertiesSlice";
 import "leaflet/dist/leaflet.css";
@@ -32,30 +32,63 @@ function MapBounds({ items }: { items: Property[] }) {
   return null;
 }
 
+function MapCenterReporter({ onCenter }: { onCenter: (lat: number, lng: number) => void }) {
+  const map = useMapEvents({
+    moveend() {
+      const c = map.getCenter();
+      onCenter(c.lat, c.lng);
+    },
+  });
+  useEffect(() => {
+    const c = map.getCenter();
+    onCenter(c.lat, c.lng);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- stable map instance
+  }, [map]);
+  return null;
+}
+
 /** Search filters + list/map toggle for seekers. */
 export function SeekerSearch() {
   useFixLeafletIcons();
   const dispatch = useAppDispatch();
+  const authUser = useAppSelector((s) => s.auth.user);
   const [city, setCity] = useState("Karachi");
   const [minBed, setMinBed] = useState<number | "">("");
+  const [minBath, setMinBath] = useState<number | "">("");
   const [maxPrice, setMaxPrice] = useState<number | "">("");
   const [furnished, setFurnished] = useState<boolean | "">("");
   const [q, setQ] = useState("");
+  const [radiusKm, setRadiusKm] = useState<number | "">("");
+  const [mapCenter, setMapCenter] = useState({ lat: 24.86, lng: 67.01 });
+  const reportMapCenter = useCallback((lat: number, lng: number) => {
+    setMapCenter((prev) => (Math.abs(prev.lat - lat) < 1e-6 && Math.abs(prev.lng - lng) < 1e-6 ? prev : { lat, lng }));
+  }, []);
   const [view, setView] = useState<"list" | "map">("list");
   const [items, setItems] = useState<Property[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [alertCity, setAlertCity] = useState("Karachi");
+  const [alertMinPrice, setAlertMinPrice] = useState<number | "">("");
+  const [alertMaxPrice, setAlertMaxPrice] = useState<number | "">("");
+  const [alertMinBed, setAlertMinBed] = useState<number | "">("");
+  const [alertMsg, setAlertMsg] = useState<string | null>(null);
 
   const params = useMemo(() => {
     const p = new URLSearchParams();
     if (city) p.set("city", city);
     if (minBed !== "") p.set("min_bedrooms", String(minBed));
+    if (minBath !== "") p.set("min_bathrooms", String(minBath));
     if (maxPrice !== "") p.set("max_price", String(maxPrice));
     if (furnished !== "") p.set("furnished", String(furnished));
     if (q.trim()) p.set("q", q.trim());
+    if (radiusKm !== "" && Number(radiusKm) > 0) {
+      p.set("near_lat", String(mapCenter.lat));
+      p.set("near_lng", String(mapCenter.lng));
+      p.set("radius_m", String(Number(radiusKm) * 1000));
+    }
     p.set("limit", "30");
     return p.toString();
-  }, [city, minBed, maxPrice, furnished, q]);
+  }, [city, minBed, minBath, maxPrice, furnished, q, radiusKm, mapCenter.lat, mapCenter.lng]);
 
   async function runSearch() {
     setLoading(true);
@@ -76,6 +109,26 @@ export function SeekerSearch() {
     void runSearch();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  async function saveAlert(e: FormEvent) {
+    e.preventDefault();
+    setAlertMsg(null);
+    if (authUser?.role !== "seeker") return;
+    try {
+      await apiFetch("/listing-alerts", {
+        method: "POST",
+        json: {
+          city: alertCity,
+          min_price: alertMinPrice === "" ? undefined : Number(alertMinPrice),
+          max_price: alertMaxPrice === "" ? undefined : Number(alertMaxPrice),
+          min_bedrooms: alertMinBed === "" ? undefined : Number(alertMinBed),
+        },
+      });
+      setAlertMsg("Alert saved. We will notify you when matching listings go live.");
+    } catch (ex) {
+      setAlertMsg(ex instanceof Error ? ex.message : "Failed");
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -109,6 +162,15 @@ export function SeekerSearch() {
             />
           </label>
           <label className="block text-sm">
+            <span className="text-gray-600">Min bathrooms</span>
+            <input
+              type="number"
+              className="mt-1 w-full border rounded-lg px-2 py-2"
+              value={minBath}
+              onChange={(e) => setMinBath(e.target.value === "" ? "" : Number(e.target.value))}
+            />
+          </label>
+          <label className="block text-sm">
             <span className="text-gray-600">Max price (PKR)</span>
             <input
               type="number"
@@ -125,6 +187,17 @@ export function SeekerSearch() {
             />
             Furnished only
           </label>
+          <label className="block text-sm">
+            <span className="text-gray-600">Map radius (km)</span>
+            <input
+              type="number"
+              className="mt-1 w-full border rounded-lg px-2 py-2"
+              placeholder="Leave empty for city-wide"
+              value={radiusKm}
+              onChange={(e) => setRadiusKm(e.target.value === "" ? "" : Number(e.target.value))}
+            />
+            <span className="text-xs text-gray-500">Uses map center when you open the Map tab.</span>
+          </label>
           <button
             type="button"
             onClick={() => void runSearch()}
@@ -132,6 +205,50 @@ export function SeekerSearch() {
           >
             {loading ? "Searching…" : "Apply"}
           </button>
+
+          {authUser?.role === "seeker" && (
+            <div className="border-t pt-4 space-y-2">
+              <h3 className="text-sm font-semibold">New listing alerts</h3>
+              <form className="space-y-2" onSubmit={saveAlert}>
+                <input
+                  className="w-full border rounded-lg px-2 py-2 text-sm"
+                  value={alertCity}
+                  onChange={(e) => setAlertCity(e.target.value)}
+                  placeholder="City"
+                />
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="number"
+                    className="border rounded-lg px-2 py-1 text-xs"
+                    placeholder="Min rent"
+                    value={alertMinPrice === "" ? "" : alertMinPrice}
+                    onChange={(e) => setAlertMinPrice(e.target.value === "" ? "" : Number(e.target.value))}
+                  />
+                  <input
+                    type="number"
+                    className="border rounded-lg px-2 py-1 text-xs"
+                    placeholder="Max rent"
+                    value={alertMaxPrice === "" ? "" : alertMaxPrice}
+                    onChange={(e) => setAlertMaxPrice(e.target.value === "" ? "" : Number(e.target.value))}
+                  />
+                </div>
+                <input
+                  type="number"
+                  className="w-full border rounded-lg px-2 py-1 text-xs"
+                  placeholder="Min bedrooms (optional)"
+                  value={alertMinBed === "" ? "" : alertMinBed}
+                  onChange={(e) => setAlertMinBed(e.target.value === "" ? "" : Number(e.target.value))}
+                />
+                <button
+                  type="submit"
+                  className="w-full py-2 rounded-lg bg-gray-900 text-white text-xs font-medium"
+                >
+                  Save alert
+                </button>
+              </form>
+              {alertMsg && <p className="text-xs text-gray-600">{alertMsg}</p>}
+            </div>
+          )}
         </aside>
 
         <div className="flex-1 space-y-4">
@@ -167,6 +284,7 @@ export function SeekerSearch() {
             <div className="h-[480px] rounded-xl overflow-hidden border border-gray-200 shadow-sm">
               <MapContainer center={[24.86, 67.01]} zoom={11} className="h-full w-full">
                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                <MapCenterReporter onCenter={reportMapCenter} />
                 <MapBounds items={items} />
                 {items.map((p) => {
                   const c = p.location?.coordinates;

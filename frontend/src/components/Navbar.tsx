@@ -1,6 +1,7 @@
+import { useEffect, useState } from "react";
 import { Link, NavLink } from "react-router-dom";
+import { apiFetch, setToken } from "../api/client";
 import { useAppDispatch, useAppSelector } from "../app/hooks";
-import { setToken } from "../api/client";
 import { logout } from "../slices/authSlice";
 
 const linkCls = ({ isActive }: { isActive: boolean }) =>
@@ -12,6 +13,22 @@ const linkCls = ({ isActive }: { isActive: boolean }) =>
 export function Navbar() {
   const user = useAppSelector((s) => s.auth.user);
   const dispatch = useAppDispatch();
+  const [unread, setUnread] = useState(0);
+
+  useEffect(() => {
+    if (!user) {
+      setUnread(0);
+      return;
+    }
+    void (async () => {
+      try {
+        const r = (await apiFetch("/notifications/unread-count")) as { count: number };
+        setUnread(r.count);
+      } catch {
+        setUnread(0);
+      }
+    })();
+  }, [user]);
 
   return (
     <header className="border-b border-gray-200 bg-white/80 backdrop-blur sticky top-0 z-50">
@@ -39,6 +56,21 @@ export function Navbar() {
           {user && (
             <NavLink to="/chat" className={linkCls}>
               Chat
+            </NavLink>
+          )}
+          {user && (
+            <NavLink to="/notifications" className={linkCls}>
+              Alerts{unread > 0 ? ` (${unread})` : ""}
+            </NavLink>
+          )}
+          {user?.role === "seeker" && (
+            <NavLink to="/favorites" className={linkCls}>
+              Saved
+            </NavLink>
+          )}
+          {user && (
+            <NavLink to="/profile" className={linkCls}>
+              Profile
             </NavLink>
           )}
         </nav>

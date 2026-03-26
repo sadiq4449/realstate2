@@ -28,6 +28,7 @@ class PropertyCreate(BaseModel):
     furnished: bool = False
     amenities: List[str] = []
     images: List[str] = []
+    videos: List[str] = []
     latitude: Optional[float] = None
     longitude: Optional[float] = None
 
@@ -45,6 +46,7 @@ class PropertyUpdate(BaseModel):
     furnished: Optional[bool] = None
     amenities: Optional[List[str]] = None
     images: Optional[List[str]] = None
+    videos: Optional[List[str]] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
 
@@ -64,6 +66,8 @@ class PropertyOut(BaseModel):
     furnished: bool
     amenities: List[str]
     images: List[str]
+    videos: List[str] = []
+    view_count: int = 0
     status: PropertyStatus
     location: Optional[GeoPoint] = None
     created_at: Optional[datetime] = None

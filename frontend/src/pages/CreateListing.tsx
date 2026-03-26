@@ -1,6 +1,6 @@
 import { FormEvent, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { apiFetch } from "../api/client";
+import { apiBase, apiFetch, getToken } from "../api/client";
 
 export function CreateListing() {
   const nav = useNavigate();
@@ -15,7 +15,23 @@ export function CreateListing() {
   const [amenities, setAmenities] = useState("parking,ac");
   const [lat, setLat] = useState(24.86);
   const [lng, setLng] = useState(67.01);
+  const [images, setImages] = useState<string[]>([]);
+  const [videos, setVideos] = useState<string[]>([]);
   const [err, setErr] = useState<string | null>(null);
+
+  async function uploadFile(file: File): Promise<string | null> {
+    const fd = new FormData();
+    fd.append("file", file);
+    const token = getToken();
+    const res = await fetch(`${apiBase}/upload`, {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: fd,
+    });
+    const data = (await res.json()) as { url?: string };
+    if (!res.ok) return null;
+    return data.url ?? null;
+  }
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -34,7 +50,8 @@ export function CreateListing() {
           bathrooms,
           furnished,
           amenities: list,
-          images: [],
+          images,
+          videos,
           latitude: lat,
           longitude: lng,
         },
@@ -83,6 +100,44 @@ export function CreateListing() {
           Furnished
         </label>
         <input className="w-full border rounded-lg px-3 py-2" value={amenities} onChange={(e) => setAmenities(e.target.value)} />
+        <div className="space-y-2">
+          <p className="text-sm font-medium">Photos & videos</p>
+          <div className="flex flex-wrap gap-2">
+            <label className="text-xs px-3 py-2 rounded-lg border border-gray-200 cursor-pointer bg-white">
+              Add image
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={async (e) => {
+                  const f = e.target.files?.[0];
+                  if (!f) return;
+                  const url = await uploadFile(f);
+                  if (url) setImages((prev) => [...prev, url]);
+                  e.target.value = "";
+                }}
+              />
+            </label>
+            <label className="text-xs px-3 py-2 rounded-lg border border-gray-200 cursor-pointer bg-white">
+              Add video
+              <input
+                type="file"
+                accept="video/*"
+                className="hidden"
+                onChange={async (e) => {
+                  const f = e.target.files?.[0];
+                  if (!f) return;
+                  const url = await uploadFile(f);
+                  if (url) setVideos((prev) => [...prev, url]);
+                  e.target.value = "";
+                }}
+              />
+            </label>
+          </div>
+          <p className="text-xs text-gray-500">
+            {images.length} image(s), {videos.length} video(s) attached
+          </p>
+        </div>
         <div className="grid sm:grid-cols-2 gap-3">
           <input type="number" step="any" className="border rounded-lg px-3 py-2" value={lat} onChange={(e) => setLat(Number(e.target.value))} />
           <input type="number" step="any" className="border rounded-lg px-3 py-2" value={lng} onChange={(e) => setLng(Number(e.target.value))} />

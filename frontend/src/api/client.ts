@@ -61,4 +61,17 @@ export async function apiFetch(path: string, opts: Opt = {}) {
   return data;
 }
 
+/** Download binary/text with auth (e.g. invoice). */
+export async function apiDownload(path: string): Promise<Blob> {
+  const token = getToken();
+  const headers: Record<string, string> = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  const res = await fetch(`${API_BASE}${path}`, { headers });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text || res.statusText);
+  }
+  return res.blob();
+}
+
 export const apiBase = API_BASE;

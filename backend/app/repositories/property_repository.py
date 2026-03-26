@@ -37,6 +37,8 @@ async def insert_property(db: AsyncIOMotorDatabase, owner_id: str, data: Dict[st
         "furnished": bool(data.get("furnished", False)),
         "amenities": list(data.get("amenities") or []),
         "images": list(data.get("images") or []),
+        "videos": list(data.get("videos") or []),
+        "view_count": 0,
         "status": PropertyStatus.PENDING.value,
         "location": _location(data.get("latitude"), data.get("longitude")),
         "created_at": now,
@@ -88,6 +90,17 @@ async def delete_property(db: AsyncIOMotorDatabase, prop_id: str, owner_id: str)
         return False
 
 
+async def increment_view_count(db: AsyncIOMotorDatabase, prop_id: str) -> None:
+    """Count a public detail view (approved listings only)."""
+    try:
+        await db.properties.update_one(
+            {"_id": _oid(prop_id), "status": PropertyStatus.APPROVED.value},
+            {"$inc": {"view_count": 1}},
+        )
+    except Exception:
+        pass
+
+
 async def set_status(
     db: AsyncIOMotorDatabase, prop_id: str, status: PropertyStatus, reason: Optional[str] = None
 ) -> bool:
@@ -115,8 +128,7 @@ async def list_by_owner(
     return items, total
 
 
-async def search_properties(
-    db: AsyncIOMotorDatabase,
+def _search_filter(
     *,
     q: Optional[str] = None,
     min_price: Optional[float] = None,
@@ -131,12 +143,7 @@ async def search_properties(
     near_lng: Optional[float] = None,
     near_lat: Optional[float] = None,
     max_distance_m: Optional[float] = None,
-    skip: int = 0,
-    limit: int = 20,
-) -> Tuple[List[Dict[str, Any]], int]:
-    """
-    Text + filter search. Optional $near sphere for map radius (meters).
-    """
+) -> Dict[str, Any]:
     filt: Dict[str, Any] = {"status": status.value}
 
     if city:
@@ -169,9 +176,120 @@ async def search_properties(
     if q and str(q).strip():
         filt["$text"] = {"$search": q.strip()}
 
-    total = await db.properties.count_documents(filt)
-    cursor = db.properties.find(filt).skip(skip).limit(limit).sort("rent_monthly", 1)
-    items = await cursor.to_list(length=limit)
+    return filt
+
+
+async def search_properties(
+    db: AsyncIOMotorDatabase,
+    *,
+    q: Optional[str] = None,
+    min_price: Optional[float] = None,
+    max_price: Optional[float] = None,
+    min_bedrooms: Optional[int] = None,
+    max_bedrooms: Optional[int] = None,
+    min_bathrooms: Optional[int] = None,
+    furnished: Optional[bool] = None,
+    amenities: Optional[List[str]] = None,
+    city: Optional[str] = None,
+    status: PropertyStatus = PropertyStatus.APPROVED,
+    near_lng: Optional[float] = None,
+    near_lat: Optional[float] = None,
+    max_distance_m: Optional[float] = None,
+    skip: int = 0,
+    limit: int = 20,
+    featured_first: bool = True,
+) -> Tuple[List[Dict[str, Any]], int]:
+    """
+    Text + filter search. Optional geo radius. When featured_first, Pro/Featured plans sort higher
+    (search_boost on subscription_plans).
+    """
+    filt = _search_filter(
+        q=q,
+        min_price=min_price,
+        max_price=max_price,
+        min_bedrooms=min_bedrooms,
+        max_bedrooms=max_bedrooms,
+        min_bathrooms=min_bathrooms,
+        furnished=furnished,
+        amenities=amenities,
+        city=city,
+        status=status,
+        near_lng=near_lng,
+        near_lat=near_lat,
+        max_distance_m=max_distance_m,
+    )
+
+    if not featured_first:
+        total = await db.properties.count_documents(filt)
+        cursor = db.properties.find(filt).skip(skip).limit(limit).sort("rent_monthly", 1)
+        items = await cursor.to_list(length=limit)
+        return items, total
+
+    pipeline: List[Dict[str, Any]] = [
+        {"$match": filt},
+        {
+            "$lookup": {
+                "from": "subscriptions",
+                "let": {"oid": "$owner_id"},
+                "pipeline": [
+                    {
+                        "$match": {
+                            "$expr": {
+                                "$and": [
+                                    {"$eq": ["$user_id", "$$oid"]},
+                                    {"$eq": ["$status", "active"]},
+                                ]
+                            }
+                        }
+                    }
+                ],
+                "as": "sub",
+            }
+        },
+        {
+            "$lookup": {
+                "from": "subscription_plans",
+                "let": {"pid": {"$arrayElemAt": ["$sub.plan_id", 0]}},
+                "pipeline": [
+                    {
+                        "$match": {
+                            "$expr": {
+                                "$eq": [
+                                    {"$toString": "$_id"},
+                                    {"$toString": {"$ifNull": ["$$pid", ""]}},
+                                ]
+                            }
+                        }
+                    }
+                ],
+                "as": "plan",
+            }
+        },
+        {
+            "$addFields": {
+                "_rank": {"$ifNull": [{"$arrayElemAt": ["$plan.search_boost", 0]}, 0]},
+            }
+        },
+        {
+            "$facet": {
+                "meta": [{"$count": "count"}],
+                "items": [
+                    {"$sort": {"_rank": -1, "rent_monthly": 1}},
+                    {"$skip": skip},
+                    {"$limit": limit},
+                    {"$project": {"sub": 0, "plan": 0, "_rank": 0}},
+                ],
+            }
+        },
+    ]
+
+    agg = await db.properties.aggregate(pipeline).to_list(length=1)
+    if not agg:
+        return [], 0
+    facet = agg[0]
+    meta = facet.get("meta") or []
+    total = int(meta[0]["count"]) if meta else 0
+    items = facet.get("items") or []
     return items, total
 
 

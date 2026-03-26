@@ -18,6 +18,7 @@ def _oid(s: str) -> ObjectId:
 
 async def insert_plan(db: AsyncIOMotorDatabase, doc: Dict[str, Any]) -> str:
     doc.setdefault("active", True)
+    doc.setdefault("search_boost", int(doc.get("search_boost") or 0))
     doc["created_at"] = datetime.now(timezone.utc)
     res = await db.subscription_plans.insert_one(doc)
     return str(res.inserted_id)
@@ -108,6 +109,15 @@ async def insert_transaction(
     }
     res = await db.transactions.insert_one(doc)
     return str(res.inserted_id)
+
+
+async def find_transaction_for_user(
+    db: AsyncIOMotorDatabase, transaction_id: str, user_id: str
+) -> Optional[Dict[str, Any]]:
+    try:
+        return await db.transactions.find_one({"_id": _oid(transaction_id), "user_id": user_id})
+    except Exception:
+        return None
 
 
 async def list_transactions_for_user(
