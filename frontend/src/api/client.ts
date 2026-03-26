@@ -17,7 +17,7 @@ const API_BASE = useDevProxy
   ? "/api/v1"
   : envUrl.length > 0
     ? envUrl
-    : "http://localhost:8000/api/v1";
+    : "/api/v1";
 
 export function getToken(): string | null {
   return localStorage.getItem("rs_token");

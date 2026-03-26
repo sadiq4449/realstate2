@@ -17,7 +17,10 @@ function wsBaseUrl() {
   if (env) return env.replace(/\/$/, "");
   const { protocol, hostname } = window.location;
   const wsProto = protocol === "https:" ? "wss" : "ws";
-  return `${wsProto}://${hostname}:8000`;
+  if (hostname === "localhost" || hostname === "127.0.0.1") {
+    return `${wsProto}://${hostname}:8000`;
+  }
+  return `${wsProto}://${hostname}`;
 }
 
 /** Inbox + thread view with WebSocket join for live updates. */

@@ -85,3 +85,24 @@ python scripts/seed_mongo.py
    - `python scripts/seed_mongo.py`
 
 Reference repo: [sadiq4449/realstate](https://github.com/sadiq4449/realstate)
+
+### Deploy both frontend + backend on Railway
+
+Create two Railway services from the same repo:
+
+1. **Backend service**
+   - Root directory: repo root
+   - Variables:
+     - `MONGODB_URI` = Reference -> MongoDB -> `MONGO_URL`
+     - `MONGODB_DB=realstat`
+     - `JWT_SECRET_KEY=<strong-random-secret>`
+     - `CORS_ORIGINS=https://<frontend-service-domain>`
+
+2. **Frontend service**
+   - Root directory: `frontend`
+   - Variables:
+     - `API_UPSTREAM=https://<backend-service-domain>`
+   - Do **not** set `MONGODB_URI` on frontend service.
+
+This frontend setup proxies `/api`, `/media`, and `/ws` to backend using `API_UPSTREAM`,
+so you avoid `host not found in upstream "api"` errors on Railway.
