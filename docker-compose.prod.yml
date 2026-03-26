@@ -1,0 +1,41 @@
+# Production-style compose: set secrets via env / Docker secrets manager
+services:
+  mongo:
+    image: mongo:7
+    restart: always
+    volumes:
+      - mongo_prod:/data/db
+    # In real prod prefer MongoDB Atlas instead of container Mongo
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: always
+    environment:
+      MONGODB_URI: ${MONGODB_URI}
+      MONGODB_DB: ${MONGODB_DB:-realstat}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      CORS_ORIGINS: ${CORS_ORIGINS}
+      STORAGE_MODE: ${STORAGE_MODE:-s3}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_S3_BUCKET: ${AWS_S3_BUCKET:-}
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      PUBLIC_MEDIA_BASE_URL: ${PUBLIC_MEDIA_BASE_URL}
+    ports:
+      - "8000:8000"
+
+  web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: ${PUBLIC_API_URL}/api/v1
+    restart: always
+    ports:
+      - "80:80"
+
+volumes:
+  mongo_prod:

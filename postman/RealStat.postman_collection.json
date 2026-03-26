@@ -1,0 +1,251 @@
+{
+  "info": {
+    "name": "RealStat Rental API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8000/api/v1" },
+    { "key": "token", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register Seeker",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/auth/register",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"new@demo.com\",\n  \"password\": \"password123\",\n  \"full_name\": \"New User\",\n  \"role\": \"seeker\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"seeker@demo.com\",\n  \"password\": \"password123\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "Me",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/users/me"
+          }
+        },
+        {
+          "name": "Admin List Users",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/users/admin/list"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Search",
+      "item": [
+        {
+          "name": "Search Properties",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/search/properties?city=Karachi&min_bedrooms=2&limit=10"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Properties",
+      "item": [
+        {
+          "name": "Create (Owner)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/properties",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Test Apt\",\n  \"description\": \"Nice place\",\n  \"city\": \"Karachi\",\n  \"address\": \"Street 1\",\n  \"rent_monthly\": 120000,\n  \"bedrooms\": 2,\n  \"bathrooms\": 2,\n  \"furnished\": true,\n  \"amenities\": [\"ac\",\"parking\"],\n  \"images\": [],\n  \"latitude\": 24.86,\n  \"longitude\": 67.01\n}"
+            }
+          }
+        },
+        {
+          "name": "Mine",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/properties/mine"
+          }
+        },
+        {
+          "name": "Get by ID",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/properties/REPLACE_ID"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin",
+      "item": [
+        {
+          "name": "Pending Listings",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/admin/properties/pending"
+          }
+        },
+        {
+          "name": "Moderate Listing",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/admin/properties/REPLACE_ID/moderate",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"approved\",\n  \"reason\": \"Looks good\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Subscriptions",
+      "item": [
+        {
+          "name": "List Plans",
+          "request": { "method": "GET", "url": "{{baseUrl}}/subscriptions/plans" }
+        },
+        {
+          "name": "Subscribe Mock",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/subscriptions/subscribe",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"plan_id\": \"REPLACE_PLAN_ID\",\n  \"use_mock_payment\": true\n}"
+            }
+          }
+        },
+        {
+          "name": "Invoices",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/subscriptions/invoices"
+          }
+        },
+        {
+          "name": "Create Plan (Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/subscriptions/plans",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Enterprise\",\n  \"description\": \"100 listings\",\n  \"price_monthly\": 199,\n  \"max_listings\": 100\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Messages",
+      "item": [
+        {
+          "name": "Send Message",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/messages",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"property_id\": \"REPLACE_PROP\",\n  \"recipient_id\": \"REPLACE_OWNER\",\n  \"body\": \"Hello from Postman\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Conversations",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/messages/conversations"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Upload",
+      "item": [
+        {
+          "name": "Multipart File",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "body": {
+              "mode": "formdata",
+              "formdata": [{ "key": "file", "type": "file", "src": "" }]
+            },
+            "url": "{{baseUrl}}/upload"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Analytics",
+      "item": [
+        {
+          "name": "Summary",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/analytics/summary"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health",
+          "request": { "method": "GET", "url": "http://localhost:8000/health" }
+        }
+      ]
+    }
+  ]
+}
