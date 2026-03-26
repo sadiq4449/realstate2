@@ -69,3 +69,19 @@ python scripts/seed_mongo.py
 - Set `JWT_SECRET_KEY`, `MONGODB_URI` (Atlas), `CORS_ORIGINS`, `STORAGE_MODE=s3`, Stripe keys.  
 - Build frontend with `VITE_API_URL` pointing at the public API URL.  
 - Serve HTTPS and use `wss://` for chat.
+
+## Railway deploy (with MongoDB addon)
+
+1. Push this repo to GitHub (already configured with `railway.json` + root `Dockerfile`).
+2. In Railway, create a new project from the repo.
+3. Add a **MongoDB** addon/plugin to the same project.
+4. In service Variables, set:
+   - `MONGODB_URI=${{MongoDB.MONGO_URL}}`
+   - `MONGODB_DB=realstat`
+   - `JWT_SECRET_KEY=<strong-random-secret>`
+   - `CORS_ORIGINS=https://<your-frontend-domain>`
+5. Deploy/redeploy the service.
+6. Optional: seed data after deploy using a one-off command in backend context:
+   - `python scripts/seed_mongo.py`
+
+Reference repo: [sadiq4449/realstate](https://github.com/sadiq4449/realstate)
